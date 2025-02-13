@@ -14,9 +14,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Get current date and time
+      - name: Get current Beijing time
         id: date
-        run: echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
+        run: |
+          # 安装tzdata包以支持时区设置
+          sudo apt-get install -y tzdata
+          # 设置时区为北京时间
+          sudo timedatectl set-timezone Asia/Shanghai
+          # 获取当前北京时间并格式化
+          echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
 
       - name: Rename files
         run: |
