@@ -24,7 +24,11 @@ jobs:
             filename=$(basename "$file")
             extension="${filename##*.}"
             name="${filename%.*}"
-            new_filename="${name}-${{ steps.date.outputs.datetime }}.${extension}"
+            
+            # 检查文件名中是否已有类似形式的后缀，如果有则移除
+            clean_name=$(echo "$name" | sed -E 's/-[0-9]{12}$//')
+            
+            new_filename="${clean_name}-${{ steps.date.outputs.datetime }}.${extension}"
             mv "$file" "$(dirname "$file")/$new_filename"
           done
 
