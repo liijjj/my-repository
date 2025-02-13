@@ -12,7 +12,7 @@
             win.myz=head;
             win.mybtns=head.querySelector('my-btns');
         }else{
-            win.doc=win.document;win.al=win.alert;win.cl=win.console.log;win.cc=console.clear();
+            win.doc=win.document;win.al=win.alert;win.cl=win.console.log;win.cc=console.clear;
             win.dq=selector=>document.querySelector(selector);win.dqa=selector=>document.querySelectorAll(selector);
             win.si=setInterval;win.st=setTimeout;
             win.myz=head.mybefore('z','',`className`,'rwf');//myzone;rwf纯标识用
