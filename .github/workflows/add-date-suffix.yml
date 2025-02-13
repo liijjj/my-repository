@@ -1,0 +1,35 @@
+# add-date-suffix.yml
+name: Add Date Suffix to Files
+
+on:
+  push:
+    branches:
+      - main  # 可以根据需要修改为你要监听的分支
+
+jobs:
+  rename-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get current date and time
+        id: date
+        run: echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
+
+      - name: Rename files
+        run: |
+          for file in $(find . -type f -not -path "./.git/*" -not -name "add-date-suffix.yml"); do
+            filename=$(basename "$file")
+            extension="${filename##*.}"
+            name="${filename%.*}"
+            new_filename="${name}-${{ steps.date.outputs.datetime }}.${extension}"
+            mv "$file" "$(dirname "$file")/$new_filename"
+          done
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "Automatically add date suffix to files"
+          branch: ${{ github.ref }}
