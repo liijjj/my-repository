@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 2  # 获取最近两次提交的历史，用于比较文件差异
 
       - name: Get current Beijing time
         id: date
@@ -24,20 +26,24 @@ jobs:
           # 获取当前北京时间并格式化
           echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
 
-      - name: Rename files
+      - name: Rename modified files
         run: |
-          for file in $(find ./js -type f -not -path "./.git/*" -not -name "add-date-suffix.yml"); do
-            filename=$(basename "$file")
-            # 清除 .js 后面的所有内容
-            clean_filename=$(echo "$filename" | sed -E 's/\.js.*/.js/')
-            name="${clean_filename%.*}"
-            extension="${clean_filename##*.}"
-            new_filename="${name}.${extension}?t=${{ steps.date.outputs.datetime }}"
-            mv "$file" "$(dirname "$file")/$new_filename"
+          # 找出本次提交中修改的 js 文件
+          modified_files=$(git diff --name-only HEAD^ HEAD -- '*.js')
+          for file in $modified_files; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              # 清除 .js 后面的所有内容
+              clean_filename=$(echo "$filename" | sed -E 's/\.js.*/.js/')
+              name="${clean_filename%.*}"
+              extension="${clean_filename##*.}"
+              new_filename="${name}.${extension}?t=${{ steps.date.outputs.datetime }}"
+              mv "$file" "$(dirname "$file")/$new_filename"
+            fi
           done
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "Automatically add date suffix to files"
+          commit_message: "Automatically add date suffix to modified files"
           branch: ${{ github.ref }}
