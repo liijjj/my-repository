@@ -73,6 +73,11 @@
         this.addEventListener(event,handler);
         return this;
     }
+    NodeList.prototype.removeEach=function(){//.forEach(e=>e.remove())
+        this.forEach(function(item){
+            item.remove();
+        });
+    };
     win.myaddbtns=(...args)=>{//myaddbtns(()=>{},e=>{confirm(e.target.id)},function(e){prompt(e.target.outerHTML)},function test(e){return 1})
         const len=args.length;
         for(let i=0;i<len;i++) win.mybtns.myappend('input','',`type`,'button','class','my-btn','value',args[i].name).ael('click',args[i]);
