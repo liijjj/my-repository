@@ -74,8 +74,13 @@
         return this;
     }
     NodeList.prototype.removeEach=function(){//.forEach(e=>e.remove())
-        this.forEach(function(item){
-            item.remove();
+        this.forEach(function(e){
+            e.remove();
+        });
+    };
+    NodeList.prototype.clickEach=function(){
+        this.forEach(function(e){
+            e.click();
         });
     };
     win.myaddbtns=(...args)=>{//myaddbtns(()=>{},e=>{confirm(e.target.id)},function(e){prompt(e.target.outerHTML)},function test(e){return 1})
