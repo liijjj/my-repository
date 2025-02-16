@@ -103,7 +103,7 @@
               min=String(date.getMinutes()).padStart(2,'0'),
               s=String(date.getSeconds()).padStart(2,'0'),
               milliseconds=String(date.getMilliseconds()).padStart(3,'0');
-        return `${y}年${m}月${d}日${h}:${min}:${s}:${milliseconds}`;
+        return `${y}年${m}月${d}日${h}:${min}:${s}.${milliseconds}`;
     }
     win.mytieba=(uname,pwd)=>{
         win.dq('[name="userName"]').value=uname;
