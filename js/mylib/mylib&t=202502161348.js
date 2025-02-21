@@ -9,10 +9,9 @@
     const My=function(){//构造函数，需配合实例方法，与this，prototype有关
         const head=document.documentElement.firstElementChild,gsv=GM_setValue,ggv=GM_getValue,gxhr=GM.xmlHttpRequest;
         if(head&&head.tagName==='Z'){
-            win.myz=head;
-            win.mybtns=head.querySelector('my-btns');
+            win.myz=head;win.mybtns=head.querySelector('my-btns');
         }else{
-            win.doc=win.document;win.al=win.alert;win.cl=win.console.log;win.cc=console.clear;
+            win.doc=win.document;win.al=win.alert;win.cl=win.console.log;win.cc=console.clear;win.ce=console.error;
             win.dq=selector=>document.querySelector(selector);win.dqa=selector=>document.querySelectorAll(selector);
             win.si=setInterval;win.st=setTimeout;
             win.myz=head.mybefore('z','',`className`,'rwf');//myzone;rwf纯标识用
