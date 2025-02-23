@@ -1,9 +1,11 @@
+# add-date-suffix.yml
 name: Add Date Suffix to Files
 
+# 当向仓库推送代码，且修改的文件路径匹配 main/js/mylib/ 下的 js 文件时触发此工作流
 on:
   push:
-    branches:
-      - main  # 可以根据需要修改为你要监听的分支
+    paths:
+      - 'main/js/mylib/*.js'
 
 jobs:
   rename-files:
@@ -11,9 +13,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 2  # 获取最近两次提交的历史，用于比较文件差异
+          # 获取最近两次提交的历史，用于比较文件差异
+          fetch-depth: 2
 
       - name: Get current Beijing time
         id: date
@@ -22,42 +25,46 @@ jobs:
           sudo apt-get install -y tzdata
           # 设置时区为北京时间
           sudo timedatectl set-timezone Asia/Shanghai
-          # 获取当前北京时间并格式化
-          echo "datetime=$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+          # 获取当前北京时间并按年年年年月月日日时时分分格式格式化
+          echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
 
-      - name: Rename modified files
+      - name: Process modified files
         run: |
           # 找出本次提交中 main/js/mylib/ 路径下修改的 js 文件
           modified_files=$(git diff --name-only HEAD^ HEAD -- 'main/js/mylib/*.js')
           for file in $modified_files; do
             if [ -f "$file" ]; then
-              filename=$(basename "$file")
-              # 移除 .js 后面的所有内容
-              clean_filename=$(echo "$filename" | sed -E 's/\.js.*//')
-              name="${clean_filename%.*}"
-              extension="${clean_filename##*.}"
-              new_filename="${name}&t=${datetime}.js"
+              # 移除文件名的 &t= 及其之后的所有内容，得到文件开头部分
+              base_name=$(basename "$file" | sed -E 's/&t=.*//')
+              # 获取文件所在目录
+              file_dir=$(dirname "$file")
+              # 统计以当前 base_name 开头的 js 文件数量
+              file_count=$(ls -1 "$file_dir"/"$base_name"*.js | wc -l)
 
-              # 重命名文件
-              mv "$file" "$(dirname "$file")/$new_filename"
-
-              # 获取以相同开头的文件列表
-              files_with_same_prefix=$(ls "$(dirname "$file")"/"$name"&t=*.js 2>/dev/null)
-              file_count=$(echo "$files_with_same_prefix" | wc -l)
-
-              # 如果文件数量少于3，复制原始文件
-              if [ "$file_count" -lt 3 ]; then
-                cp "$(dirname "$file")/$new_filename" "$(dirname "$file")/$name.js"
-              else
-                # 如果文件数量超过3，删除最旧的文件
-                oldest_file=$(ls -t "$(dirname "$file")"/"$name"&t=*.js | tail -1)
+              # 若以 base_name 开头的 js 文件数量不到 3 个
+              # 复制一份原始文件到当前路径下，同时后续会新增修改后按日期重命名的新文件
+              if [ $file_count -lt 3 ]; then
+                cp "$file" "$file_dir/$(basename "$file")"
+                echo "复制原始文件: $(basename "$file") 到当前路径"
+              # 若以 base_name 开头的 js 文件数量超过 3 个
+              # 删除最旧的一个 js 文件，同时后续会新增修改后按日期重命名的新文件
+              elif [ $file_count -gt 3 ]; then
+                oldest_file=$(ls -1t "$file_dir"/"$base_name"*.js | tail -n 1)
                 rm "$oldest_file"
+                echo "删除最旧的文件: $oldest_file"
               fi
+
+              # 替换文件名中的 t= 后面的时间为最新的北京时间
+              new_filename=$(basename "$file" | sed -E "s/t=[0-9]+/t=${{ steps.date.outputs.datetime }}/")
+              mv "$file" "$file_dir/$new_filename"
+              echo "将文件重命名为: $new_filename"
             fi
           done
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "Automatically add date suffix to modified files"
+          # 提交信息，表明自动添加或修改日期后缀到修改的文件
+          commit_message: "Automatically add/modify date suffix to modified files"
+          # 推送至当前触发工作流的分支
           branch: ${{ github.ref }}
