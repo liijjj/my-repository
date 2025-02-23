@@ -5,7 +5,7 @@
 // @grant GM_getValue
 // @grant GM.xmlHttpRequest
 //==/UserScript==
-const a=3;
+const a=0;
 ;(function(win){
     const My=function(){//构造函数，需配合实例方法，与this，prototype有关
         const head=document.documentElement.firstElementChild,gsv=GM_setValue,ggv=GM_getValue,gxhr=GM.xmlHttpRequest;
