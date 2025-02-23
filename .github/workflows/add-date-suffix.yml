@@ -1,11 +1,11 @@
 # add-date-suffix.yml
 name: Add Date Suffix to Files
 
-# 当向仓库推送代码，且修改的文件路径匹配 main/js/mylib/ 下的 js 文件时触发此工作流
+# 当向仓库推送代码，且修改的文件路径匹配 my-repository/js/mylib/ 下的 js 文件时触发此工作流
 on:
   push:
     paths:
-      - 'main/js/mylib/*.js'
+      - 'my-repository/js/mylib/*.js'
 
 jobs:
   rename-files:
@@ -30,8 +30,8 @@ jobs:
 
       - name: Process modified files
         run: |
-          # 找出本次提交中 main/js/mylib/ 路径下修改的 js 文件
-          modified_files=$(git diff --name-only HEAD^ HEAD -- 'main/js/mylib/*.js')
+          # 找出本次提交中 my-repository/js/mylib/ 路径下修改的 js 文件
+          modified_files=$(git diff --name-only HEAD^ HEAD -- 'my-repository/js/mylib/*.js')
           for file in $modified_files; do
             if [ -f "$file" ]; then
               # 移除文件名的 &t= 及其之后的所有内容，得到文件开头部分
