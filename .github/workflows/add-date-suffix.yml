@@ -44,25 +44,25 @@ jobs:
               # 若以 base_name 开头的 js 文件数量不到 3 个，复制一份原始文件到当前路径下
               if [ $file_count -lt 3 ]; then
                 cp "$file" "$file_dir/$(basename "$file")"
-                echo "Copied original file: $(basename "$file")"
+                echo "复制原始文件: $(basename "$file")"
               # 若以 base_name 开头的 js 文件数量超过 3 个，删除最旧的一个
               elif [ $file_count -gt 3 ]; then
                 oldest_file=$(ls -1t "$file_dir"/"$base_name"*.js | tail -n 1)
                 rm "$oldest_file"
-                echo "Deleted the oldest file: $oldest_file"
+                echo "删除最旧的文件: $oldest_file"
               fi
 
               # 替换文件名中的 t= 后面的时间为最新的北京时间
               new_filename=$(basename "$file" | sed -E "s/t=[0-9]+/t=${{ steps.date.outputs.datetime }}/")
               mv "$file" "$file_dir/$new_filename"
-              echo "Renamed file to: $new_filename"
+              echo "重命名文件为: $new_filename"
             fi
           done
 
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          # 提交信息
+          # 提交信息，表明自动添加或修改日期后缀到修改的文件
           commit_message: "Automatically add/modify date suffix to modified files"
-          # 推送分支
+          # 推送至当前触发工作流的分支
           branch: ${{ github.ref }}
