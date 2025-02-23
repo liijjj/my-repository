@@ -1,6 +1,11 @@
 # add-date-suffix.yml
 name: Add Date Suffix to Files
 
+# 并发设置，确保同一工作流和分支下的任务不会同时执行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     paths:
@@ -22,9 +27,9 @@ jobs:
         id: date
         run: |
           # 安装 tzdata 包以支持时区设置
-          sudo apt-get install -y tzdata
+          apt-get install -y tzdata
           # 设置时区为北京时间
-          sudo timedatectl set-timezone Asia/Shanghai
+          timedatectl set-timezone Asia/Shanghai
           # 获取当前北京时间并格式化
           echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
 
