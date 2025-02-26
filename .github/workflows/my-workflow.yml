@@ -30,12 +30,12 @@ jobs:
         run: |
           # 获取当前北京时间并格式化为YYYYMMddhhmm
           BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "::set-output name=time::$BEIJING_TIME"  # 将北京时间输出到步骤输出中
+          echo "time=$BEIJING_TIME" >> $GITHUB_ENV  # 将北京时间输出到环境变量中
 
       - name: Update Filenames and Manage Files
         run: |
           # 获取北京时间
-          BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
+          BEIJING_TIME="${{ env.time }}"
           # 遍历js/mylib/路径下的所有js文件
           for file in js/mylib/*.js; do
             # 提取文件名开头
@@ -85,3 +85,4 @@ jobs:
             git commit -m "Update JS filenames with current Beijing time and manage file count"
             git push
           fi
+
