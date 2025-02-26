@@ -63,8 +63,14 @@ jobs:
               # 找到日期最旧的文件
               oldest_file=$(ls -t js/mylib/"$prefix"&t=*.js | tail -n 1)
               # 删除最旧的文件
-              rm "$oldest_file"
-              echo "Deleted oldest file: $oldest_file"
+              if [ -n "$oldest_file" ]; then
+                # 检查文件权限，可根据实际情况调整权限修改逻辑
+                chmod +w "$oldest_file"
+                rm "$oldest_file"
+                echo "Deleted oldest file: $oldest_file"
+              else
+                echo "No oldest file found to delete."
+              fi  # 结束 if [ -n "$oldest_file" ]; 条件判断
             fi
           done
 
@@ -79,3 +85,4 @@ jobs:
             git commit -m "Update JS filenames with current Beijing time and manage file count"
             git push
           fi
+
