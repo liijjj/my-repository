@@ -60,17 +60,21 @@ jobs:
             # 再次统计以该前缀开头的文件数量
             file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
             if [ $file_count -gt 3 ]; then
-              # 找到日期最旧的文件
-              oldest_file=$(ls -t js/mylib/"$prefix"&t=*.js | tail -n 1)
-              # 删除最旧的文件
-              if [ -n "$oldest_file" ]; then
-                # 检查文件权限，可根据实际情况调整权限修改逻辑
-                chmod +w "$oldest_file"
-                rm "$oldest_file"
-                echo "Deleted oldest file: $oldest_file"
-              else
-                echo "No oldest file found to delete."
-              fi  # 结束 if [ -n "$oldest_file" ]; 条件判断
+              # 计算需要删除的文件数量
+              files_to_delete=$((file_count - 3))
+              # 按修改时间降序排列文件，获取需要删除的最旧文件列表
+              files_to_remove=$(ls -t js/mylib/"$prefix"&t=*.js | tail -n $files_to_delete)
+              # 遍历需要删除的文件列表
+              for old_file in $files_to_remove; do
+                if [ -n "$old_file" ]; then
+                  # 检查文件权限，可根据实际情况调整权限修改逻辑
+                  chmod +w "$old_file"
+                  rm "$old_file"
+                  echo "Deleted oldest file: $old_file"
+                else
+                  echo "No oldest file found to delete."
+                fi
+              done
             fi
           done
 
