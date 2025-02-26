@@ -60,8 +60,8 @@ jobs:
             # 再次统计以该前缀开头的文件数量
             file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
             if [ $file_count -gt 3 ]; then
-              # 找到日期最旧的文件
-              oldest_file=$(ls -t js/mylib/"$prefix"&t=*.js | tail -n 1)
+              # 找到日期最旧的文件，通过提取时间戳排序
+              oldest_file=$(ls js/mylib/"$prefix"&t=*.js | sed 's/.*&t=\([0-9]\{12\}\)\.js/\1 &/' | sort -n | head -n 1 | cut -d' ' -f2)
               # 删除最旧的文件
               if [ -n "$oldest_file" ]; then
                 # 检查文件权限，可根据实际情况调整权限修改逻辑
@@ -85,4 +85,3 @@ jobs:
             git commit -m "Update JS filenames with current Beijing time and manage file count"
             git push
           fi
-
