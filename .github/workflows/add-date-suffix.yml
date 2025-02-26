@@ -17,11 +17,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3  # 检出代码到工作区
 
-      - name: Set up Python
-        uses: actions/setup-python@v4  # 设置Python环境
-        with:
-          python-version: 3.10
-
       - name: Generate Beijing Time
         id: beijing-time
         run: |
