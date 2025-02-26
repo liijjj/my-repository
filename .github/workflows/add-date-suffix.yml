@@ -1,70 +1,57 @@
-# add-date-suffix.yml
-name: Add Date Suffix to Files
+# my-workflow.yml
+# 需求说明：每次当前仓库/js/mylib/路径下的js文件提交修改时，将修改的文件的文件名中的t=YYYYMMddhhmm这一部分替换为最新的北京时间，
+# 例如mylib&t=202502161348.js就替换为mylib&t=202503201111.js，时间只是举例，必须基于当前生成的真实北京时间。
 
-# 当向仓库推送代码，且修改的文件路径匹配 my-repository/js/mylib/ 下的 js 文件时触发此工作流
+name: Update JS Filename Timestamp
+
 on:
   push:
     paths:
-      - 'my-repository/js/mylib/*.js'
+      - 'js/mylib/*.js'  # 当js/mylib/路径下的js文件有提交修改时触发工作流
 
 jobs:
-  rename-files:
+  update-timestamp:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3  # 检出代码到工作区
+
+      - name: Set up Python
+        uses: actions/setup-python@v4  # 设置Python环境
         with:
-          # 获取最近两次提交的历史，用于比较文件差异
-          fetch-depth: 2
+          python-version: 3.10
 
-      - name: Get current Beijing time
-        id: date
+      - name: Generate Beijing Time
+        id: beijing-time
         run: |
-          # 安装 tzdata 包以支持时区设置
-          sudo apt-get install -y tzdata
-          # 设置时区为北京时间
-          sudo timedatectl set-timezone Asia/Shanghai
-          # 获取当前北京时间并按年年年年月月日日时时分分格式格式化
-          echo "::set-output name=datetime::$(date +'%Y%m%d%H%M')"
+          # 获取当前北京时间并格式化为YYYYMMddhhmm
+          BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
+          echo "::set-output name=time::$BEIJING_TIME"  # 将北京时间输出到步骤输出中
 
-      - name: Process modified files
+      - name: Update Filenames
         run: |
-          # 找出本次提交中 my-repository/js/mylib/ 路径下修改的 js 文件
-          modified_files=$(git diff --name-only HEAD^ HEAD -- 'my-repository/js/mylib/*.js')
-          for file in $modified_files; do
-            if [ -f "$file" ]; then
-              # 移除文件名的 &t= 及其之后的所有内容，得到文件开头部分
-              base_name=$(basename "$file" | sed -E 's/&t=.*//')
-              # 获取文件所在目录
-              file_dir=$(dirname "$file")
-              # 统计以当前 base_name 开头的 js 文件数量
-              file_count=$(ls -1 "$file_dir"/"$base_name"*.js | wc -l)
-
-              # 若以 base_name 开头的 js 文件数量不到 3 个
-              # 复制一份原始文件到当前路径下，同时后续会新增修改后按日期重命名的新文件
-              if [ $file_count -lt 3 ]; then
-                cp "$file" "$file_dir/$(basename "$file")"
-                echo "复制原始文件: $(basename "$file") 到当前路径"
-              # 若以 base_name 开头的 js 文件数量超过 3 个
-              # 删除最旧的一个 js 文件，同时后续会新增修改后按日期重命名的新文件
-              elif [ $file_count -gt 3 ]; then
-                oldest_file=$(ls -1t "$file_dir"/"$base_name"*.js | tail -n 1)
-                rm "$oldest_file"
-                echo "删除最旧的文件: $oldest_file"
-              fi
-
-              # 替换文件名中的 t= 后面的时间为最新的北京时间
-              new_filename=$(basename "$file" | sed -E "s/t=[0-9]+/t=${{ steps.date.outputs.datetime }}/")
-              mv "$file" "$file_dir/$new_filename"
-              echo "将文件重命名为: $new_filename"
+          # 获取北京时间
+          BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
+          # 遍历js/mylib/路径下的所有js文件
+          for file in js/mylib/*.js; do
+            if [[ $file =~ (.*t=)[0-9]{12}(.*) ]]; then
+              # 提取文件名中需要替换的部分
+              new_file="${BASH_REMATCH[1]}${BEIJING_TIME}${BASH_REMATCH[2]}"
+              # 重命名文件
+              mv "$file" "$new_file"
+              echo "Renamed $file to $new_file"
             fi
           done
 
-      - name: Commit and push changes
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          # 提交信息，表明自动添加或修改日期后缀到修改的文件
-          commit_message: "Automatically add/modify date suffix to modified files"
-          # 推送至当前触发工作流的分支
-          branch: ${{ github.ref }}
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add js/mylib/*.js
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update JS filenames with current Beijing time"
+            git push
+          fi
