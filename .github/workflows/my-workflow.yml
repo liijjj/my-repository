@@ -1,9 +1,21 @@
+# my-workflow.yml
+# 需求说明：每次当前仓库/js/mylib/路径下的js文件提交修改时，将修改的文件的文件名中的t=YYYYMMddhhmm这一部分替换为最新的北京时间，
+# 例如mylib&t=202502161348.js就替换为mylib&t=202503201111.js，时间只是举例，必须基于当前生成的真实北京时间。
+# 新增功能：判断js文件的开头，判断方法是先移除文件名的&t=及其之后的所有内容，留下来的内容就是开头。
+# 例如mylib&t=202502161348.js的开头就是mylib。
+# 用上面的判断开头的方法，判断js/mylib/路径下有几个以mylib开头的js文件，
+# 如果mylib开头的js文件小于4个，就预先复制一份原始文件（例如mylib&t=202502161348.js）到当前路径下，
+# 然后新增一个修改后的重命名的最新的文件（例如mylib&t=202502270010.js）。
+# 然后再次判断js/mylib/路径下有几个以mylib开头的js文件，如果文件超过3个，
+# 则自动删除日期最旧的一个js文件（例如mylib&t=202502161348.js），
+# 保持mylib开头的js文件的数量不超过3。如果在 js/mylib/路径下遇到以其他内容开头的js文件（例如tt&t=202502270010.js），也同上操作。
+
 name: Update JS Filename Timestamp
 
 on:
   push:
     paths:
-      - 'js/mylib/*.js'
+      - 'js/mylib/*.js'  # 当js/mylib/路径下的js文件有提交修改时触发工作流
 
 jobs:
   update-timestamp:
@@ -11,67 +23,66 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3  # 检出代码到工作区
 
       - name: Generate Beijing Time
         id: beijing-time
         run: |
+          # 获取当前北京时间并格式化为YYYYMMddhhmm
           BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "::set-output name=time::$BEIJING_TIME"
+          echo "::set-output name=time::$BEIJING_TIME"  # 将北京时间输出到步骤输出中
 
       - name: Update Filenames and Manage Files
         run: |
-          # 【用户需求注释开始】
-          # 判断js文件的开头的判断方法是,移除文件名的&t=及其之后的所有内容,留下来的内容就是开头.例如mylib&t=202502161348.js的开头就是mylib.
-          # 1.每次当前仓库/js/mylib/路径下的js文件提交修改时,预先复制一份原始文件(例如mylib&t=202502161348.js)到当前路径下,新增第1个文件;然后将修改后的文件的文件名中的t=YYYYMMddhhmm这一部分替换为最新的北京时间,例如mylib&t=202502161348.js就替换为mylib&t=202503201111.js,新增第2个文件.(必须基于当前真实北京时间);
-          # 2.然后判断js/mylib/路径下有几个以mylib开头的js文件,如果文件超过3个,则循环删除日期最旧的以mylib开头的js文件(例如mylib&t=202502161348.js),直至mylib开头的js文件还剩3个时停止删除.如果在当前路径下遇到其他开头的js文件(例如tmp&t=202502270010.js),也同上操作.
-          # 3.必须把我的以上要求也原封不动写入代码的注释中.
-          # 【用户需求注释结束】
-
+          # 获取北京时间
           BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          # 遍历所有待处理的JS文件
-          for original_file in js/mylib/*.js; do
-            # 提取文件基础名称（不含时间戳）
-            prefix=$(basename "$original_file" | sed 's/&t=.*\.js$//')
+          # 遍历js/mylib/路径下的所有js文件
+          for file in js/mylib/*.js; do
+            # 提取文件名开头
+            prefix=$(basename "$file" | sed 's/&t=.*//')
+            # 统计以该前缀开头的文件数量
+            file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
 
-            # 复制原始文件（保留旧版本）
-            cp "$original_file" "${original_file}.copy"
-            echo "Copied original file: $original_file -> ${original_file}.copy"
+            if [ $file_count -lt 4 ]; then
+              # 复制原始文件
+              cp "$file" "$file.copy"
+              echo "Copied $file to $file.copy"
+            fi
 
-            # 生成新文件名（替换时间戳）
-            new_filename="${original_file/&t=\d{12}/&t=${BEIJING_TIME}}"
-            mv "$original_file" "$new_filename"
-            echo "Renamed file: $original_file -> $new_filename"
+            if [[ $file =~ (.*t=)[0-9]{12}(.*) ]]; then
+              # 提取文件名中需要替换的部分
+              new_file="${BASH_REMATCH[1]}${BEIJING_TIME}${BASH_REMATCH[2]}"
+              # 重命名文件
+              mv "$file" "$new_file"
+              echo "Renamed $file to $new_file"
+            fi
 
-            # 统计当前前缀的文件数量
-            files=$(ls "js/mylib/${prefix}*t*.js")
-            file_count=$(echo "$files" | wc -l)
-
-            # 删除最旧文件直到只剩3个
-            while [ "$file_count" -gt 3 ]; do
-              if [ -z "$files" ]; then break  # 防止意外空循环
-              # 按时间戳排序（字典序升序即时间顺序）
-              sorted_files=$(sort "$files")
-              oldest_file=$(sorted_files[0])
-              rm "$oldest_file"
-              echo "Deleted oldest file: $oldest_file"
-
-              # 更新统计信息
-              files=$(ls "js/mylib/${prefix}*t*.js")
-              file_count=$(echo "$files" | wc -l)
-            done
+            # 再次统计以该前缀开头的文件数量
+            file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
+            if [ $file_count -gt 3 ]; then
+              # 计算需要删除的文件数量
+              files_to_delete=$((file_count - 3))
+              # 按文件名中的时间戳排序，找到最旧的文件进行删除
+              files_to_remove=$(ls js/mylib/"$prefix"&t=*.js | sed 's/.*&t=\([0-9]\{12\}\)\.js/\1 &/' | sort -n | head -n $files_to_delete | cut -d' ' -f2)
+              for old_file in $files_to_remove; do
+                if [ -n "$old_file" ]; then
+                  # 检查文件权限，可根据实际情况调整权限修改逻辑
+                  chmod +w "$old_file"
+                  rm "$old_file"
+                  echo "Deleted oldest file: $old_file"
+                else
+                  echo "No oldest file found to delete."
+                fi
+              done
+            fi
           done
 
       - name: Commit and Push Changes
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
-          
-          # 添加修改文件（排除备份文件）
-          git add "js/mylib/!(*.copy).js"
-          
-          # 提交变更
-          if git diff-index --quiet HEAD; then
+          git add js/mylib/*.js
+          if git diff --staged --quiet; then
             echo "No changes to commit."
           else
             git commit -m "Update JS filenames with current Beijing time and manage file count"
