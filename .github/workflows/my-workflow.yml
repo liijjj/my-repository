@@ -11,56 +11,46 @@ jobs:
 
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3  # 检出代码到工作区
+        uses: actions/checkout@v3
 
       - name: 生成北京时间
         id: beijing-time
         run: |
-          # 获取当前北京时间并格式化为YYYYMMddhhmm
           BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "time=$BEIJING_TIME" >> $GITHUB_ENV  # 将北京时间输出到环境变量中
+          echo "time=$BEIJING_TIME" >> $GITHUB_ENV
+          echo "当前北京时间：$BEIJING_TIME"
 
       - name: 拷贝原始文件
         run: |
-          # 遍历所有被修改的文件
+          echo "检测到的修改文件："
+          git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js' | tee /dev/stderr
           for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            # 提取文件名前缀
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            # 拷贝原始文件
             cp "$file" "$file.copy"
             echo "已拷贝 $file 到 $file.copy"
           done
 
       - name: 创建新的时间戳文件
         run: |
-          # 获取北京时间
           BEIJING_TIME="${{ env.time }}"
-          # 遍历所有被修改的文件
           for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            # 提取文件名前缀和扩展名
             prefix=$(basename "$file" | sed 's/&t=.*//')
             extension="${file##*.}"
-            # 创建新的文件名
             new_file="js/mylib/${prefix}&t=${BEIJING_TIME}.${extension}"
-            # 重命名文件
             cp "$file" "$new_file"
             echo "创建了新文件: $new_file"
           done
 
       - name: 控制文件数量
         run: |
-          # 遍历所有被修改的文件
           for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            # 提取文件名前缀
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            # 获取以该前缀开头的所有文件列表，按修改时间排序
             files=($(ls -t js/mylib/"$prefix"&t=*.js 2>/dev/null))
-            # 如果文件数量超过3个，则删除多余的文件
             while [ ${#files[@]} -gt 3 ]; do
               oldest_file="${files[-1]}"
               rm "$oldest_file"
               echo "删除最旧的文件: $oldest_file"
-              unset files[-1]  # 删除最后一个元素
+              unset files[-1]
             done
           done
 
