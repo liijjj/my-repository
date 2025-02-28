@@ -1,6 +1,6 @@
 //==UserScript==
 // @name mylib
-// @description 我的工具库1123
+// @description 我的工具库11234
 // @grant GM_setValue
 // @grant GM_getValue
 // @grant GM.xmlHttpRequest
