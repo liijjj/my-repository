@@ -17,44 +17,69 @@ jobs:
 
       - name: 拷贝原始文件
         run: |
-          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            prefix=$(basename "$file" | cut -d'&' -f1)
-            ext="${file##*.}"
-            current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
-            new_file="${file%.*}&t=$current_time.$ext"
-            cp "$file" "$new_file"
-            if [ -f "$new_file" ]; then
-              echo "已拷贝原始文件 $file 到 $new_file"
-            else
-              echo "拷贝文件 $file 到 $new_file 失败"
-            fi
-          done
+          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          if [ -z "$modified_files" ]; then
+            echo "无拷贝，未检测到修改的 JS 文件"
+          else
+            for file in $modified_files; do
+              prefix=$(basename "$file" | cut -d'&' -f1)
+              ext="${file##*.}"
+              current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
+              new_file="${file%.*}&t=$current_time.$ext"
+              cp "$file" "$new_file"
+              if [ -f "$new_file" ]; then
+                echo "已拷贝 $file 到 $new_file"
+              else
+                echo "拷贝 $file 到 $new_file 失败"
+              fi
+            done
+          fi
 
       - name: 新增重命名文件
         run: |
-          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            prefix=$(basename "$file" | cut -d'&' -f1)
-            ext="${file##*.}"
-            current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
-            new_file="js/mylib/${prefix}&t=$current_time.$ext"
-            cp "$file" "$new_file"
-            echo "已新增重命名文件 $file 到 $new_file"
-          done
+          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          if [ -z "$modified_files" ]; then
+            echo "无新增，未检测到修改的 JS 文件"
+          else
+            for file in $modified_files; do
+              prefix=$(basename "$file" | cut -d'&' -f1)
+              ext="${file##*.}"
+              current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
+              new_file="js/mylib/${prefix}&t=$current_time.$ext"
+              cp "$file" "$new_file"
+              if [ -f "$new_file" ]; then
+                echo "已新增 $file 并重命名为 $new_file"
+              else
+                echo "新增并重命名 $file 为 $new_file 失败"
+              fi
+            done
+          fi
 
       - name: 控制文件个数
         run: |
-          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            prefix=$(basename "$file" | cut -d'&' -f1)
-            files=($(ls -t js/mylib/${prefix}&t=*.js 2>/dev/null))
-            if [ ${#files[@]} -gt 3 ]; then
-              num_to_delete=$((${#files[@]} - 3))
-              for ((i=0; i<num_to_delete; i++)); do
-                rm "${files[-1]}"
-                echo "已删除最早的文件 ${files[-1]}"
-                unset files[-1]
-              done
-            fi
-          done
+          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          if [ -z "$modified_files" ]; then
+            echo "无文件个数控制操作，未检测到修改的 JS 文件"
+          else
+            for file in $modified_files; do
+              prefix=$(basename "$file" | cut -d'&' -f1)
+              files=($(ls -t js/mylib/${prefix}&t=*.js 2>/dev/null))
+              if [ ${#files[@]} -gt 3 ]; then
+                num_to_delete=$((${#files[@]} - 3))
+                for ((i=0; i<num_to_delete; i++)); do
+                  rm "${files[-1]}"
+                  if [ ! -f "${files[-1]}" ]; then
+                    echo "已删除最早的文件 ${files[-1]}"
+                  else
+                    echo "删除最早的文件 ${files[-1]} 失败"
+                  fi
+                  unset files[-1]
+                done
+              else
+                echo "以 $prefix 为前缀的文件数量未超过 3 个，无需删除"
+              fi
+            done
+          fi
 
       - name: 提交更改
         run: |
@@ -64,6 +89,7 @@ jobs:
           if [[ -n $(git status --porcelain) ]]; then
             git commit -m "更新 JS 文件并处理版本控制"
             git push
+            echo "已提交并推送更改"
           else
             echo "没有可提交的更改，跳过提交和推送步骤"
           fi
