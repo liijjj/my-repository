@@ -1,81 +1,70 @@
-name: Update JS Filename Timestamp
+name: Manage JS Files
 
 on:
   push:
     paths:
-      - 'js/mylib/*.js'
+      - 'js/mylib/*.js'  # 仅在路径下的 JS 文件内容被修改时触发
 
 jobs:
-  update-timestamp:
+  manage-js-files:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: 检出代码
+        uses: actions/checkout@v3  # 检出代码到工作区
 
-      - name: Generate Beijing Time
+      - name: 生成北京时间
         id: beijing-time
         run: |
+          # 获取当前北京时间并格式化为YYYYMMddhhmm
           BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "::set-output name=time::$BEIJING_TIME"
+          echo "time=$BEIJING_TIME" >> $GITHUB_ENV  # 将北京时间输出到环境变量中
 
       - name: 拷贝原始文件
         run: |
-          BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          modified_files=$(git diff --name-only origin/main HEAD | grep 'js/mylib/.*\.js')
-          for file in $modified_files; do
+          # 遍历所有被修改的文件
+          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
+            # 提取文件名前缀
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
-
-            if [ $file_count -lt 4 ]; then
-              cp "$file" "$file.copy"
-              echo "已将 $file 复制到 $file.copy"
-            else
-              echo "以 $prefix 开头的文件数量已达到或超过 4 个，无需复制 $file。"
-            fi
+            # 拷贝原始文件
+            cp "$file" "$file.copy"
+            echo "已拷贝 $file 到 $file.copy"
           done
 
-      - name: 新增文件
+      - name: 创建新的时间戳文件
         run: |
-          BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          modified_files=$(git diff --name-only origin/main HEAD | grep 'js/mylib/.*\.js')
-          for file in $modified_files; do
-            if [[ $file =~ (.*t=)[0-9]{12}(.*) ]]; then
-              new_file="${BASH_REMATCH[1]}${BEIJING_TIME}${BASH_REMATCH[2]}"
-              mv "$file" "$new_file"
-              echo "已将 $file 重命名为 $new_file"
-            fi
-          done
-
-      - name: 控制文件数目(删除旧文件)
-        run: |
-          BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          for file in js/mylib/*.js; do
+          # 获取北京时间
+          BEIJING_TIME="${{ env.time }}"
+          # 遍历所有被修改的文件
+          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
+            # 提取文件名前缀和扩展名
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
-            echo "即将删除文件"
-            if [ $file_count -gt 3 ]; then
-              files_to_delete=$((file_count - 3))
-              files_to_remove=$(ls js/mylib/"$prefix"&t=*.js | sed 's/.*&t=\([0-9]\{12\}\)\.js/\1 &/' | sort -n | head -n $files_to_delete | cut -d' ' -f2)
-              for old_file in $files_to_remove; do
-                if [ -n "$old_file" ]; then
-                  chmod +w "$old_file"
-                  if [ -f "$old_file" ]; then
-                    rm "$old_file"
-                    echo "已删除最旧的文件: $old_file"
-                  else
-                    echo "文件 $old_file 不存在，无法删除。"
-                  fi
-                else
-                  echo "未找到要删除的最旧文件。"
-                fi
-              done
-            else
-              echo "没有需要删除的文件数"
-            fi
+            extension="${file##*.}"
+            # 创建新的文件名
+            new_file="js/mylib/${prefix}&t=${BEIJING_TIME}.${extension}"
+            # 重命名文件
+            cp "$file" "$new_file"
+            echo "创建了新文件: $new_file"
           done
 
-      - name: Commit and Push Changes
+      - name: 控制文件数量
+        run: |
+          # 遍历所有被修改的文件
+          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
+            # 提取文件名前缀
+            prefix=$(basename "$file" | sed 's/&t=.*//')
+            # 获取以该前缀开头的所有文件列表，按修改时间排序
+            files=($(ls -t js/mylib/"$prefix"&t=*.js 2>/dev/null))
+            # 如果文件数量超过3个，则删除多余的文件
+            while [ ${#files[@]} -gt 3 ]; do
+              oldest_file="${files[-1]}"
+              rm "$oldest_file"
+              echo "删除最旧的文件: $oldest_file"
+              unset files[-1]  # 删除最后一个元素
+            done
+          done
+
+      - name: 提交并推送更改
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
@@ -83,6 +72,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "没有需要提交的更改。"
           else
-            git commit -m "Update JS filenames with current Beijing time and manage file count"
+            git commit -m "管理 JS 文件: 拷贝、创建和控制数量"
             git push
           fi
