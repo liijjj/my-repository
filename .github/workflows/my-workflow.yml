@@ -29,34 +29,35 @@ jobs:
           # 【用户需求注释结束】
 
           BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          for file in js/mylib/*.js; do
-            # 提取文件开头（移除 &t= 及之后的内容）
-            prefix=$(basename "$file" | sed 's/&t=.*//')
-            
-            # 复制原始文件到当前路径下，生成 .copy 文件
-            cp "$file" "${file}.copy"
-            echo "Copied original file: $file -> ${file}.copy"
-            
-            # 生成新文件名并替换时间戳
-            new_filename=$(echo "$file" | sed "s/\&t=\d{12}\.js/\&t=${BEIJING_TIME}.js/")
-            mv "$file" "$new_filename"
-            echo "Renamed file: $file -> $new_filename"
-            
-            # 统计以 $prefix 开头且包含 &t= 的.js 文件数量
-            files=$(ls js/mylib/$prefix*t=*.js)
+          # 遍历所有待处理的JS文件
+          for original_file in js/mylib/*.js; do
+            # 提取文件基础名称（不含时间戳）
+            prefix=$(basename "$original_file" | sed 's/&t=.*\.js$//')
+
+            # 复制原始文件（保留旧版本）
+            cp "$original_file" "${original_file}.copy"
+            echo "Copied original file: $original_file -> ${original_file}.copy"
+
+            # 生成新文件名（替换时间戳）
+            new_filename="${original_file/&t=\d{12}/&t=${BEIJING_TIME}}"
+            mv "$original_file" "$new_filename"
+            echo "Renamed file: $original_file -> $new_filename"
+
+            # 统计当前前缀的文件数量
+            files=$(ls "js/mylib/${prefix}*t*.js")
             file_count=$(echo "$files" | wc -l)
-            
-            # 删除最旧的文件直到数量 <=3
-            while [ $file_count -gt 3 ]; do
-              if [ -z "$files" ]; then
-                break
-              # 按时间戳排序（字典序）
+
+            # 删除最旧文件直到只剩3个
+            while [ "$file_count" -gt 3 ]; do
+              if [ -z "$files" ]; then break  # 防止意外空循环
+              # 按时间戳排序（字典序升序即时间顺序）
               sorted_files=$(sort "$files")
               oldest_file=$(sorted_files[0])
               rm "$oldest_file"
               echo "Deleted oldest file: $oldest_file"
-              # 更新files和file_count
-              files=$(ls js/mylib/$prefix*t=*.js)
+
+              # 更新统计信息
+              files=$(ls "js/mylib/${prefix}*t*.js")
               file_count=$(echo "$files" | wc -l)
             done
           done
@@ -66,11 +67,11 @@ jobs:
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           
-          # 添加所有修改过的.js文件，排除 .copy 文件
-          git add js/mylib/!(*.copy).js
+          # 添加修改文件（排除备份文件）
+          git add "js/mylib/!(*.copy).js"
           
-          # 检查是否有更改需要提交
-          if git diff --staged --quiet; then
+          # 提交变更
+          if git diff-index --quiet HEAD; then
             echo "No changes to commit."
           else
             git commit -m "Update JS filenames with current Beijing time and manage file count"
