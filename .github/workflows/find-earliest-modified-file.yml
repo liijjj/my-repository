@@ -1,0 +1,24 @@
+name: 查找 js/my 下修改时间最早的文件
+
+on:
+  push:
+    branches:
+      - main  # 可根据需要修改为你实际的分支名
+
+jobs:
+  find-earliest-file:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+
+      - name: 查找并输出修改时间最早的文件
+        run: |
+          # 查找 js/my/ 目录下的所有文件，并按修改时间排序
+          earliest_file=$(find js/my/ -type f -printf '%T@ %p\n' | sort -n | head -1 | cut -d' ' -f2-)
+          if [ -n "$earliest_file" ]; then
+            echo "js/my/ 目录下修改时间最早的文件是: $earliest_file"
+          else
+            echo "js/my/ 目录下没有文件。"
+          fi
