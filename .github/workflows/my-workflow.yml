@@ -3,7 +3,7 @@ name: JS 文件更新工作流
 on:
   push:
     paths:
-      - 'js/mylib/*.js'  # 当 js/mylib 路径下的 JS 文件有修改时触发
+      - 'js/mylib/*.js'
 
 jobs:
   update-js-files:
@@ -12,54 +12,42 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
+        with:
+          ref: main
 
       - name: 拷贝原始文件
         run: |
-          # 遍历 js/mylib 路径下所有修改过的 JS 文件
           for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            # 获取文件名前缀
             prefix=$(basename "$file" | cut -d'&' -f1)
-            # 获取文件扩展名
             ext="${file##*.}"
-            # 获取当前北京时间
             current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
-            # 生成新的文件名，保留原始文件
             new_file="${file%.*}&t=$current_time.$ext"
-            # 拷贝原始文件
             cp "$file" "$new_file"
-            echo "已拷贝原始文件 $file 到 $new_file"
+            if [ -f "$new_file" ]; then
+              echo "已拷贝原始文件 $file 到 $new_file"
+            else
+              echo "拷贝文件 $file 到 $new_file 失败"
+            fi
           done
 
       - name: 新增重命名文件
         run: |
-          # 遍历 js/mylib 路径下所有修改过的 JS 文件
           for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            # 获取文件名前缀
             prefix=$(basename "$file" | cut -d'&' -f1)
-            # 获取文件扩展名
             ext="${file##*.}"
-            # 获取当前北京时间
             current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
-            # 生成新的文件名
             new_file="js/mylib/${prefix}&t=$current_time.$ext"
-            # 复制修改后的文件到新文件名
             cp "$file" "$new_file"
             echo "已新增重命名文件 $file 到 $new_file"
           done
 
       - name: 控制文件个数
         run: |
-          # 遍历 js/mylib 路径下所有修改过的 JS 文件
           for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
-            # 获取文件名前缀
             prefix=$(basename "$file" | cut -d'&' -f1)
-            # 获取所有以当前前缀开头的 JS 文件，并按修改日期排序
             files=($(ls -t js/mylib/${prefix}&t=*.js 2>/dev/null))
-            # 如果文件数量超过 3 个
             if [ ${#files[@]} -gt 3 ]; then
-              # 计算需要删除的文件数量
               num_to_delete=$((${#files[@]} - 3))
-              # 删除最早的文件
               for ((i=0; i<num_to_delete; i++)); do
                 rm "${files[-1]}"
                 echo "已删除最早的文件 ${files[-1]}"
