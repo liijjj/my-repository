@@ -52,6 +52,7 @@ jobs:
 
             # 再次统计以该前缀开头的文件数量
             file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
+            echo "即将删除文件"
             if [ $file_count -gt 3 ]; then
               # 计算需要删除的文件数量
               files_to_delete=$((file_count - 3))
