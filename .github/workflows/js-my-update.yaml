@@ -1,0 +1,52 @@
+name: Manage JS Files in js/my
+
+on:
+  push:
+    paths:
+      - 'js/my/*.js'  # 仅在路径下的 JS 文件内容被修改时触发
+
+jobs:
+  manage-js-files:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3  # 检出代码到工作区
+
+      - name: 生成北京时间
+        id: beijing-time
+        run: |
+          # 获取当前北京时间并格式化为YYYYMMddhhmm
+          BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
+          echo "time=$BEIJING_TIME" >> $GITHUB_ENV  # 将北京时间输出到环境变量中
+          echo "当前北京时间：$BEIJING_TIME"
+
+      - name: 拷贝原始文件并创建新文件
+        run: |
+          # 遍历所有被修改的文件
+          for file in $(git diff --name-only HEAD^ HEAD -- 'js/my/*.js'); do
+            # 提取文件名前缀
+            prefix=$(basename "$file" | sed 's/&t=.*//')
+            # 生成新的文件名
+            BEIJING_TIME="${{ env.time }}"
+            extension="${file##*.}"
+            new_file="js/my/${prefix}&t=${BEIJING_TIME}.${extension}"
+            # 拷贝原始文件
+            cp "$file" "$file.copy"
+            echo "已拷贝原始文件: $file 到 $file.copy"
+            # 创建新的时间戳文件
+            cp "$file" "$new_file"
+            echo "创建了新文件: $new_file"
+          done
+
+      - name: 提交并推送更改
+        run: |
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'actions@github.com'
+          git add js/my/*.js
+          if git diff --staged --quiet; then
+            echo "没有需要提交的更改。"
+          else
+            git commit -m "管理 JS 文件: 拷贝和创建新文件"
+            git push
+          fi
