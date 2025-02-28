@@ -91,6 +91,8 @@ jobs:
                   echo "未找到要删除的最旧文件。"
                 fi
               done
+            else
+              echo "没有需要删除的文件数"
             fi
           done
 
