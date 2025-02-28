@@ -1,6 +1,6 @@
 //==UserScript==
 // @name mylib
-// @description 0
+// @description 01
 // @grant GM_setValue
 // @grant GM_getValue
 // @grant GM.xmlHttpRequest
