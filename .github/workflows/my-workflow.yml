@@ -3,7 +3,7 @@ name: Update JS Filename Timestamp
 on:
   push:
     paths:
-      - 'js/mylib/*.js'  # 当js/mylib/路径下的js文件有提交修改时触发工作流
+      - 'js/mylib/*.js'
 
 jobs:
   update-timestamp:
@@ -11,29 +11,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3  # 检出代码到工作区
+        uses: actions/checkout@v3
 
       - name: Generate Beijing Time
         id: beijing-time
         run: |
-          # 获取当前北京时间并格式化为YYYYMMddhhmm
           BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "::set-output name=time::$BEIJING_TIME"  # 将北京时间输出到步骤输出中
+          echo "::set-output name=time::$BEIJING_TIME"
 
       - name: 拷贝原始文件
         run: |
-          # 获取北京时间
           BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          # 获取提交修改的文件列表
-          modified_files=$(git diff --name-only HEAD^ HEAD | grep 'js/mylib/.*\.js')
+          modified_files=$(git diff --name-only origin/main HEAD | grep 'js/mylib/.*\.js')
           for file in $modified_files; do
-            # 提取文件名开头
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            # 统计以该前缀开头的文件数量
             file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
 
             if [ $file_count -lt 4 ]; then
-              # 复制原始文件
               cp "$file" "$file.copy"
               echo "已将 $file 复制到 $file.copy"
             else
@@ -43,15 +37,11 @@ jobs:
 
       - name: 新增文件
         run: |
-          # 获取北京时间
           BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          # 获取提交修改的文件列表
-          modified_files=$(git diff --name-only HEAD^ HEAD | grep 'js/mylib/.*\.js')
+          modified_files=$(git diff --name-only origin/main HEAD | grep 'js/mylib/.*\.js')
           for file in $modified_files; do
             if [[ $file =~ (.*t=)[0-9]{12}(.*) ]]; then
-              # 提取文件名中需要替换的部分
               new_file="${BASH_REMATCH[1]}${BEIJING_TIME}${BASH_REMATCH[2]}"
-              # 重命名文件
               mv "$file" "$new_file"
               echo "已将 $file 重命名为 $new_file"
             fi
@@ -59,23 +49,16 @@ jobs:
 
       - name: 控制文件数目(删除旧文件)
         run: |
-          # 获取北京时间
           BEIJING_TIME="${{ steps.beijing-time.outputs.time }}"
-          # 遍历js/mylib/路径下的所有js文件
           for file in js/mylib/*.js; do
-            # 提取文件名开头
             prefix=$(basename "$file" | sed 's/&t=.*//')
-            # 再次统计以该前缀开头的文件数量
             file_count=$(ls js/mylib/"$prefix"&t=*.js 2>/dev/null | wc -l)
             echo "即将删除文件"
             if [ $file_count -gt 3 ]; then
-              # 计算需要删除的文件数量
               files_to_delete=$((file_count - 3))
-              # 按文件名中的时间戳排序，找到最旧的文件进行删除
               files_to_remove=$(ls js/mylib/"$prefix"&t=*.js | sed 's/.*&t=\([0-9]\{12\}\)\.js/\1 &/' | sort -n | head -n $files_to_delete | cut -d' ' -f2)
               for old_file in $files_to_remove; do
                 if [ -n "$old_file" ]; then
-                  # 检查文件权限，可根据实际情况调整权限修改逻辑
                   chmod +w "$old_file"
                   if [ -f "$old_file" ]; then
                     rm "$old_file"
