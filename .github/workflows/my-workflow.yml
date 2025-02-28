@@ -1,67 +1,71 @@
-name: Manage JS Files
+name: 处理JS文件更新
 
 on:
   push:
-    paths:
-      - 'js/mylib/*.js'  # 仅在路径下的 JS 文件内容被修改时触发
+    branches:
+      main
 
 jobs:
-  manage-js-files:
+  process-js:
     runs-on: ubuntu-latest
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 生成北京时间
-        id: beijing-time
+      - name: 备份原始文件
         run: |
-          BEIJING_TIME=$(TZ='Asia/Shanghai' date +'%Y%m%d%H%M')
-          echo "time=$BEIJING_TIME" >> $GITHUB_ENV
-          echo "当前北京时间：$BEIJING_TIME"
-
-      - name: 拷贝原始文件
-        run: |
-          echo "检测到的修改文件："
-          git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js' | tee /dev/stderr
-          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            prefix=$(basename "$file" | sed 's/&t=.*//')
-            cp "$file" "$file.copy"
-            echo "已拷贝 $file 到 $file.copy"
+          # 创建备份目录
+          mkdir -p js/mylib/backups
+          # 获取所有修改的JS文件
+          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/.*\.js$")
+          # 备份每个修改的文件
+          for file in $changed_files; do
+            echo "备份文件：${file}"
+            cp "${file}" "js/mylib/backups/$(basename "${file}")"
           done
 
-      - name: 创建新的时间戳文件
+      - name: 生成带时间戳的新文件
         run: |
-          BEIJING_TIME="${{ env.time }}"
-          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            prefix=$(basename "$file" | sed 's/&t=.*//')
-            extension="${file##*.}"
-            new_file="js/mylib/${prefix}&t=${BEIJING_TIME}.${extension}"
-            cp "$file" "$new_file"
-            echo "创建了新文件: $new_file"
+          # 获取当前北京时间并格式化
+          timestamp=$(date --tz=Asia/Shanghai +"%Y%m%d%H%M%S")
+          # 获取所有修改的JS文件
+          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/.*\.js$")
+          # 处理每个文件
+          for file in $changed_files; do
+            filename=$(basename "${file}")
+            # 提取文件前缀（&前面的部分）
+            prefix=$(echo "${filename}" | cut -d'&' -f1)
+            # 提取后缀（去掉前缀和扩展名）
+            suffix_part=$(echo "${filename}" | cut -d'&' -f2-)
+            suffix=$(echo "${suffix_part}" | sed 's/\.js$//')
+            # 构建新文件名
+            new_filename="${prefix}&${timestamp}.js"
+            echo "生成新文件：${new_filename}"
+            # 复制文件并更新修改时间为当前时间
+            cp "${file}" "js/mylib/${new_filename}"
+            touch "js/mylib/${new_filename}"
           done
 
-      - name: 控制文件数量
+      - name: 清理旧文件
         run: |
-          for file in $(git diff --name-only HEAD^ HEAD -- 'js/mylib/*.js'); do
-            prefix=$(basename "$file" | sed 's/&t=.*//')
-            files=($(ls -t js/mylib/"$prefix"&t=*.js 2>/dev/null))
-            while [ ${#files[@]} -gt 3 ]; do
-              oldest_file="${files[-1]}"
-              rm "$oldest_file"
-              echo "删除最旧的文件: $oldest_file"
-              unset files[-1]
+          # 收集所有存在的前缀
+          prefixes=$(find js/mylib/ -maxdepth 1 -type f -name "*.js" | cut -d'&' -f1 | sort -u)
+          # 遍历每个前缀进行清理
+          for prefix in $prefixes; do
+            echo "清理前缀：${prefix}"
+            # 查找该前缀的所有文件
+            files=$(find js/mylib/ -type f -name "${prefix}*\.js")
+            if [ -z "$files" ]; then
+              continue
+            # 按修改时间降序排列
+            sorted_files=$(ls -lt "$files")
+            # 保留最新3个，删除其余
+            to_delete=$(tail -n +4 <<<"$sorted_files" | awk '{print $NF}')
+            for file in $to_delete; do
+              if [ -f "$file" ]; then
+                echo "删除旧文件：${file}"
+                rm "$file"
+              fi
             done
           done
-
-      - name: 提交并推送更改
-        run: |
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'actions@github.com'
-          git add js/mylib/*.js
-          if git diff --staged --quiet; then
-            echo "没有需要提交的更改。"
-          else
-            git commit -m "管理 JS 文件: 拷贝、创建和控制数量"
-            git push
-          fi
