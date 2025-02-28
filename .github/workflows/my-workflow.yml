@@ -1,78 +1,77 @@
-name: 处理JS文件更新
+name: JS 文件更新工作流
 
 on:
   push:
-    branches:
-      main
+    paths:
+      - 'js/mylib/*.js'  # 当 js/mylib 路径下的 JS 文件有修改时触发
 
 jobs:
-  process-js:
+  update-js-files:
     runs-on: ubuntu-latest
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 备份原始文件
+      - name: 拷贝原始文件
         run: |
-          # 创建备份目录
-          mkdir -p js/mylib/backups
-          
-          # 添加调试输出
-          echo "检测到修改的文件列表："
-          echo "${GITHUB_CHANGED_FILES}"
-          
-          # 改进文件匹配正则表达式
-          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/[^/]*\.js$")
-          echo "匹配到的JS文件：$changed_files"
-          
-          # 遍历备份每个修改的JS文件
-          for file in $changed_files; do
-            echo "正在备份：${file}"
-            cp "${file}" "js/mylib/backups/$(basename "${file}")"
+          # 遍历 js/mylib 路径下所有修改过的 JS 文件
+          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
+            # 获取文件名前缀
+            prefix=$(basename "$file" | cut -d'&' -f1)
+            # 获取文件扩展名
+            ext="${file##*.}"
+            # 获取当前北京时间
+            current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
+            # 生成新的文件名，保留原始文件
+            new_file="${file%.*}&t=$current_time.$ext"
+            # 拷贝原始文件
+            cp "$file" "$new_file"
+            echo "已拷贝原始文件 $file 到 $new_file"
           done
 
-      - name: 生成带时间戳的新文件
+      - name: 新增重命名文件
         run: |
-          # 获取当前北京时间并格式化
-          timestamp=$(date --tz=Asia/Shanghai +"%Y%m%d%H%M%S")
-          # 获取所有修改的JS文件
-          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/.*\.js$")
-          # 处理每个文件
-          for file in $changed_files; do
-            filename=$(basename "${file}")
-            # 提取文件前缀（&前面的部分）
-            prefix=$(echo "${filename}" | cut -d'&' -f1)
-            # 提取后缀（去掉前缀和扩展名）
-            suffix_part=$(echo "${filename}" | cut -d'&' -f2-)
-            suffix=$(echo "${suffix_part}" | sed 's/\.js$//')
-            # 构建新文件名
-            new_filename="${prefix}&${timestamp}.js"
-            echo "生成新文件：${new_filename}"
-            # 复制文件并更新修改时间为当前时间
-            cp "${file}" "js/mylib/${new_filename}"
-            touch "js/mylib/${new_filename}"
+          # 遍历 js/mylib 路径下所有修改过的 JS 文件
+          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
+            # 获取文件名前缀
+            prefix=$(basename "$file" | cut -d'&' -f1)
+            # 获取文件扩展名
+            ext="${file##*.}"
+            # 获取当前北京时间
+            current_time=$(date -u -d '+8 hours' +%Y%m%d%H%M)
+            # 生成新的文件名
+            new_file="js/mylib/${prefix}&t=$current_time.$ext"
+            # 复制修改后的文件到新文件名
+            cp "$file" "$new_file"
+            echo "已新增重命名文件 $file 到 $new_file"
           done
 
-      - name: 清理旧文件
+      - name: 控制文件个数
         run: |
-          # 收集所有存在的前缀
-          prefixes=$(find js/mylib/ -maxdepth 1 -type f -name "*.js" | cut -d'&' -f1 | sort -u)
-          # 遍历每个前缀进行清理
-          for prefix in $prefixes; do
-            echo "清理前缀：${prefix}"
-            # 查找该前缀的所有文件
-            files=$(find js/mylib/ -type f -name "${prefix}*\.js")
-            if [ -z "$files" ]; then
-              continue
-            # 按修改时间降序排列
-            sorted_files=$(ls -lt "$files")
-            # 保留最新3个，删除其余
-            to_delete=$(tail -n +4 <<<"$sorted_files" | awk '{print $NF}')
-            for file in $to_delete; do
-              if [ -f "$file" ]; then
-                echo "删除旧文件：${file}"
-                rm "$file"
-              fi
-            done
+          # 遍历 js/mylib 路径下所有修改过的 JS 文件
+          for file in $(git diff --name-only --diff-filter=M origin/main js/mylib/*.js); do
+            # 获取文件名前缀
+            prefix=$(basename "$file" | cut -d'&' -f1)
+            # 获取所有以当前前缀开头的 JS 文件，并按修改日期排序
+            files=($(ls -t js/mylib/${prefix}&t=*.js 2>/dev/null))
+            # 如果文件数量超过 3 个
+            if [ ${#files[@]} -gt 3 ]; then
+              # 计算需要删除的文件数量
+              num_to_delete=$((${#files[@]} - 3))
+              # 删除最早的文件
+              for ((i=0; i<num_to_delete; i++)); do
+                rm "${files[-1]}"
+                echo "已删除最早的文件 ${files[-1]}"
+                unset files[-1]
+              done
+            fi
           done
+
+      - name: 提交更改
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add js/mylib/*.js
+          git commit -m "更新 JS 文件并处理版本控制"
+          git push
