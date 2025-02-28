@@ -73,5 +73,9 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add js/mylib/*.js
-          git commit -m "更新 JS 文件并处理版本控制"
-          git push
+          if [[ -n $(git status --porcelain) ]]; then
+            git commit -m "更新 JS 文件并处理版本控制"
+            git push
+          else
+            echo "没有可提交的更改，跳过提交和推送步骤"
+          fi
