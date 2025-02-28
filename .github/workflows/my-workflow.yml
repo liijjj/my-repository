@@ -17,11 +17,18 @@ jobs:
         run: |
           # 创建备份目录
           mkdir -p js/mylib/backups
-          # 获取所有修改的JS文件
-          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/.*\.js$")
-          # 备份每个修改的文件
+          
+          # 添加调试输出
+          echo "检测到修改的文件列表："
+          echo "${GITHUB_CHANGED_FILES}"
+          
+          # 改进文件匹配正则表达式
+          changed_files=$(echo "${GITHUB_CHANGED_FILES}" | grep "^js/mylib/[^/]*\.js$")
+          echo "匹配到的JS文件：$changed_files"
+          
+          # 遍历备份每个修改的JS文件
           for file in $changed_files; do
-            echo "备份文件：${file}"
+            echo "正在备份：${file}"
             cp "${file}" "js/mylib/backups/$(basename "${file}")"
           done
 
