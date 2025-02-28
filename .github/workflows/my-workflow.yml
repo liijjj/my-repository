@@ -15,9 +15,12 @@ jobs:
         with:
           ref: main
 
+      - name: 清理 Git 缓存
+        run: git rm -r --cached .
+
       - name: 拷贝原始文件
         run: |
-          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          modified_files=$(git diff --name-only --diff-filter=M HEAD js/mylib/*.js)
           if [ -z "$modified_files" ]; then
             echo "无拷贝，未检测到修改的 JS 文件"
           else
@@ -37,7 +40,7 @@ jobs:
 
       - name: 新增重命名文件
         run: |
-          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          modified_files=$(git diff --name-only --diff-filter=M HEAD js/mylib/*.js)
           if [ -z "$modified_files" ]; then
             echo "无新增，未检测到修改的 JS 文件"
           else
@@ -57,7 +60,7 @@ jobs:
 
       - name: 控制文件个数
         run: |
-          modified_files=$(git diff --name-only --diff-filter=M origin/main js/mylib/*.js)
+          modified_files=$(git diff --name-only --diff-filter=M HEAD js/mylib/*.js)
           if [ -z "$modified_files" ]; then
             echo "无文件个数控制操作，未检测到修改的 JS 文件"
           else
