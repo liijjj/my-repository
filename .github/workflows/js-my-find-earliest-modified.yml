@@ -1,12 +1,5 @@
 name: JS 文件分析工作流
 
-# 此工作流的目的是处理路径为 "js/my/" 下的所有 JS 文件，具体操作如下：
-# 1. 提取路径下所有文件的名字并保存至数组中。
-# 2. 提取每个文件的后缀。
-# 一个 js 文件分为 3 部分：前缀、后缀和扩展名。例如 mylib&t=202502161348.js，前缀是 & 前的 mylib；扩展名是 .js，去除前缀和扩展名剩下的 &t=202502161348 就是后缀。
-# 提到的一切时间（如 202502161348）都是北京时间。
-# 3. 根据不同前缀名的文件，分别输出每个前缀对应的修改时间最早的 3 个对应文件。
-
 on:
   push:
     paths:
@@ -20,35 +13,59 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v3
 
-      - name: 分析文件
+      - name: 分析文件并保存日志
         run: |
+          # 创建输出目录（如果不存在）
+          mkdir -p .github/workflows/output
+
+          # 生成北京时间时间戳（格式：202502161348）
+          timestamp=$(TZ='Asia/Shanghai' date +"%Y%m%d%H%M")
+          output_file=".github/workflows/output/log&t=${timestamp}.txt"
+
+          # 清空/创建日志文件
+          : > "$output_file"
+
           # 提取 js/my 路径下所有文件的名字并保存至数组中
           files=($(find js/my/ -type f -name "*.js"))
           declare -A prefix_files
 
           # 遍历每个文件
           for file in "${files[@]}"; do
-            # 提取文件名
             filename=$(basename "$file")
-            # 提取前缀
+            # 提取前缀（&符号前的内容）
             prefix=$(echo "$filename" | cut -d'&' -f1)
-            # 提取后缀
-            suffix=$(echo "$filename" | sed 's/^[^&]*&\(.*\)\.js$/\1/')
-            echo "文件 $filename 的后缀是: $suffix"
-
-            # 将文件按前缀分组
+            # 提取后缀（去除前缀和.js扩展名的部分）
+            suffix=$(echo "$filename" | sed 's/^[^&]*&$.*$\.js$/\1/')
+            
+            # 同时输出到控制台和日志文件
+            echo "文件 $filename 的后缀是: $suffix" | tee -a "$output_file"
+            
+            # 按前缀分组存储文件路径
             prefix_files["$prefix"]="${prefix_files[$prefix]} $file"
           done
 
-          # 遍历每个前缀
+          # 处理每个前缀组
           for prefix in "${!prefix_files[@]}"; do
-            # 按修改时间排序
+            # 按修改时间排序（从旧到新）
             sorted_files=($(echo "${prefix_files[$prefix]}" | tr ' ' '\n' | xargs stat -c "%Y %n" | sort -n | cut -d' ' -f2-))
-            # 取修改时间最早的 3 个文件
+            
+            # 取前3个最旧的文件
             earliest_files=("${sorted_files[@]:0:3}")
 
-            echo "前缀为 $prefix 的修改时间最早的 3 个文件是:"
-            for earliest_file in "${earliest_files[@]}"; do
-              echo "  - $earliest_file"
-            done
+            # 将结果写入日志文件
+            {
+              echo "================================"
+              echo "前缀 [${prefix}] 的修改时间最早的 3 个文件："
+              printf '  - %s\n' "${earliest_files[@]}"
+              echo "完整日志文件路径：${output_file}"
+            } | tee -a "$output_file"
           done
+
+          # 输出最终路径（用于后续步骤引用）
+          echo "OUTPUT_FILE=${output_file}" >> $GITHUB_ENV
+
+      - name: 上传日志文件
+        uses: actions/upload-artifact@v3
+        with:
+          name: js-analysis-logs
+          path: ${{ env.OUTPUT_FILE }}
