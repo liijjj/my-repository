@@ -26,6 +26,6 @@ jobs:
             # 生成新的文件名
             new_filename="${file_prefix}&t=${current_time}.js"
             # 复制文件到新的文件名
-            cp "$file" "js/mylib/${new_filename}"
+            cp "$file" "$file.copy"
             echo "已复制 $file 到 js/mylib/${new_filename}"
           done    
