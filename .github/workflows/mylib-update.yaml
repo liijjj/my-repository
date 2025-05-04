@@ -13,19 +13,26 @@ jobs:
       - name: Checkout code
         # 检出代码到工作区
         uses: actions/checkout@v3
+        
+      - name: Set timezone to Asia/Shanghai
+        # 获取北京时间
+        run: sudo timedatectl set-timezone Asia/Shanghai
 
       - name: Update and Duplicate Files
         # 运行脚本进行文件名替换和文件复制
         run: |
           # 获取当前北京时间
-          current_time=$(date -u +"%Y%m%d%H%M")
+          current_time=$(date +"%Y%m%d%H%M")
           # 遍历所有修改的js文件
           for file in $(git diff --name-only --diff-filter=d ${{ github.event.before }} ${{ github.event.after }} js/mylib/*.js); do
             # 提取文件名的开头部分
             file_prefix=$(basename "$file" | sed 's/&t=[0-9]*//')
+            echo " file_prefix: $file_prefix"
             # 生成新的文件名
             new_filename="${file_prefix}&t=${current_time}.js"
+            echo "源文件路径: $file"
+            echo "目标文件路径: js/mylib/${new_filename}"
             # 复制文件到新的文件名
-            cp "$file" "$file.copy"
+            cp "$file" "js/mylib/${new_filename}"
             echo "已复制 $file 到 js/mylib/${new_filename}"
           done    
