@@ -6,6 +6,7 @@
 // @grant GM.xmlHttpRequest
 //==/UserScript==
 ;(function(win){
+    alert(1)
     const My=function(){//构造函数，需配合实例方法，与this，prototype有关
         const head=document.documentElement.firstElementChild,gsv=GM_setValue,ggv=GM_getValue,gxhr=GM.xmlHttpRequest;
         if(head&&head.tagName==='Z'){
