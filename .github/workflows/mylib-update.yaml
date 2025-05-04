@@ -3,7 +3,7 @@ name: Mylib 文件版本管理
 on:
   push:
     paths:
-      - 'js/mylib/*.js'
+      - 'js/my/*.js'
 
 jobs:
   version-js-files:
@@ -15,7 +15,7 @@ jobs:
       - name: 获取修改的文件
         id: 修改的文件
         run: |
-          修改的文件列表=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep 'js/mylib/.*\.js')
+          修改的文件列表=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep 'js/my/.*\.js')
           echo "修改的文件列表=$修改的文件列表" >> $GITHUB_OUTPUT
 
       - name: 创建新版本
@@ -25,7 +25,7 @@ jobs:
             文件前缀=$(basename "$文件" | sed 's/&t=[^&]*//')
             新时间戳=$(date -u +"%Y%m%d%H%M")
             新文件名="${文件前缀}&t=${新时间戳}.js"
-            新文件路径="js/mylib/${新文件名}"
+            新文件路径="js/my/${新文件名}"
             cp "$文件" "$新文件路径"
           done
 
@@ -34,6 +34,6 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add js/mylib/*.js
+          git add js/my/*.js
           git commit -m "为修改的 mylib JS 文件创建新版本"
           git push    
