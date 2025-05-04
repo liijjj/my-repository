@@ -1,52 +1,39 @@
-name: Update JS File Timestamp
+name: Mylib 文件版本管理
 
-# 当 js/mylib/ 路径下的文件有修改时触发
 on:
   push:
     paths:
       - 'js/mylib/*.js'
 
 jobs:
-  update-timestamp:
+  version-js-files:
     runs-on: ubuntu-latest
     steps:
-      # 检出代码
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v3
 
-      # 设置北京时间
-      - name: Set up timezone
-        run: sudo timedatectl set-timezone Asia/Shanghai
-
-      # 获取当前北京时间
-      - name: Get current time
-        id: current-time
-        run: echo "::set-output name=timestamp::$(date +'%Y%m%d%H%M')"
-
-      # 查找并处理修改的 JS 文件
-      - name: Process modified JS files
+      - name: 获取修改的文件
+        id: 修改的文件
         run: |
-          # 获取所有修改的 JS 文件
-          modified_files=$(git diff --name-only --diff-filter=d HEAD~1 HEAD | grep 'js/mylib/.*\.js')
-          for file in $modified_files; do
-            # 提取文件名开头部分
-            base_name=$(basename "$file" | sed 's/&t=.*//')
-            # 构建新的文件名
-            new_file="${file%&t=*}&t=${{ steps.current-time.outputs.timestamp }}.js"
-            # 复制文件到新的文件名
-            cp "$file" "$new_file"
-            echo "Created new file: $new_file"
+          修改的文件列表=$(git diff --name-only --diff-filter=AM HEAD^ HEAD | grep 'js/mylib/.*\.js')
+          echo "修改的文件列表=$修改的文件列表" >> $GITHUB_OUTPUT
+
+      - name: 创建新版本
+        if: steps.修改的文件.outputs.修改的文件列表 != ''
+        run: |
+          for 文件 in ${{ steps.修改的文件.outputs.修改的文件列表 }}; do
+            文件前缀=$(basename "$文件" | sed 's/&t=[^&]*//')
+            新时间戳=$(date -u +"%Y%m%d%H%M")
+            新文件名="${文件前缀}&t=${新时间戳}.js"
+            新文件路径="js/mylib/${新文件名}"
+            cp "$文件" "$新文件路径"
           done
 
-      # 提交并推送修改
-      - name: Commit and push changes
+      - name: 提交并推送新文件
+        if: steps.修改的文件.outputs.修改的文件列表 != ''
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
           git add js/mylib/*.js
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Update JS file timestamps"
-            git push
-          fi    
+          git commit -m "为修改的 mylib JS 文件创建新版本"
+          git push    
